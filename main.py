@@ -264,7 +264,75 @@ def get_today_predictions(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
-
+    
+@app.get("/debug/env", summary="环境变量检查")
+def debug_env():
+    """检查 Vercel 环境变量"""
+    import os
+    
+    # 安全地显示环境变量（隐藏密码）
+    def safe_get(key):
+        value = os.getenv(key, "NOT_SET")
+        if "PASSWORD" in key or "SECRET" in key:
+            return "***HIDDEN***" if value != "NOT_SET" else "NOT_SET"
+        return value
+    
+    return {
+        "vercel_env": {
+            "VERCEL_REGION": os.getenv("VERCEL_REGION", "NOT_SET"),
+            "VERCEL_ENV": os.getenv("VERCEL_ENV", "NOT_SET"),
+            "VERCEL_URL": os.getenv("VERCEL_URL", "NOT_SET"),
+        },
+        "database_env": {
+            "DB_HOST": safe_get("DB_HOST"),
+            "DB_PORT": safe_get("DB_PORT"),
+            "DB_USER": safe_get("DB_USER"),
+            "DB_PASSWORD": safe_get("DB_PASSWORD"),
+            "DB_NAME": safe_get("DB_NAME"),
+        },
+        "python_env": {
+            "PYTHON_VERSION": os.getenv("PYTHON_VERSION", "NOT_SET"),
+            "PYTHONPATH": os.getenv("PYTHONPATH", "NOT_SET"),
+        }
+    }
+@app.get("/debug/ip", summary="查看服务器IP")
+def debug_ip():
+    """查看 Vercel 服务器的实际 IP"""
+    import socket
+    import requests
+    
+    try:
+        # 获取本机信息
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+        
+        # 获取外部看到的IP
+        external_ip_response = requests.get("https://api.ipify.org?format=json", timeout=5)
+        external_ip = external_ip_response.json()["ip"] if external_ip_response.ok else "unknown"
+        
+        # 获取 IP 地理位置（可选）
+        location_response = requests.get(f"https://ipapi.co/{external_ip}/json/", timeout=5)
+        location = location_response.json() if location_response.ok else {}
+        
+        return {
+            "server_info": {
+                "hostname": hostname,
+                "local_ip": local_ip,
+                "external_ip": external_ip,
+                "vercel_region": os.getenv("VERCEL_REGION", "unknown"),
+                "timestamp": datetime.now().isoformat()
+            },
+            "location": {
+                "city": location.get("city"),
+                "region": location.get("region"),
+                "country": location.get("country_name"),
+                "org": location.get("org"),
+                "asn": location.get("asn")
+            },
+            "instructions": "请将此 IP 添加到 Aiven 的白名单中: " + external_ip
+        }
+    except Exception as e:
+        return {"error": str(e)}
 # ==================== 本地运行入口（Vercel部署时不会执行） ====================
 if __name__ == "__main__":
     import uvicorn
