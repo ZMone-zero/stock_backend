@@ -3,6 +3,7 @@
 兼容本地运行 + Vercel Serverless部署
 """
 from fastapi import FastAPI, HTTPException, Path
+from fastapi.middleware.cors import CORSMiddleware  # 新增这行
 from typing import List, Dict, Optional
 from pydantic_settings import BaseSettings
 import os
@@ -45,6 +46,22 @@ app = FastAPI(
     description=settings.API_DESCRIPTION,
     docs_url="/docs",  # Swagger文档地址
     redoc_url="/redoc"  # ReDoc文档地址
+)
+
+# ==================== CORS 配置（新增部分）====================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  # Vue 3 Vite 默认端口
+        "http://localhost:3000",  # Create React App 默认端口
+        "http://localhost:8080",  # Vue CLI 默认端口
+        "*"  # 开发阶段允许所有，生产环境建议指定具体域名
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,  # 预检请求缓存时间（秒）
 )
 
 # ==================== 数据库连接初始化（容错处理） ====================
