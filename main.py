@@ -27,10 +27,12 @@ class Settings(BaseSettings):
     API_DESCRIPTION: str = """
     基于FastAPI的股票数据查询接口服务，支持：
     1. 按行业/地域分页查询股票
-    2. 获取单只股票最近7天日线数据
-    3. 获取股票最新技术指标
-    4. 获取Top3预测股票数据
-    5. 获取当天股票预测数据
+    2. 按页码查询全量股票列表
+    3. 通过股票代码/名称查询单只股票
+    4. 获取单只股票最近7天日线数据
+    5. 获取股票最新技术指标
+    6. 获取Top3预测股票数据
+    7. 获取当天股票预测数据
     """
 
 # 初始化配置
@@ -82,6 +84,63 @@ def health_check():
         "message": "股票数据查询API运行正常",
         "api_docs": "/docs"
     }
+
+# 新增：按页码查询全量股票列表
+@app.get("/stocks/page/{page_num}", 
+         response_model=List[Dict], 
+         summary="按页码查询全量股票列表",
+         tags=["股票列表查询"])
+def get_stocks_by_page(
+    page_num: int = Path(..., ge=1, description="页码，从1开始")
+):
+    """获取全量股票的第n页数据（每页20条）"""
+    check_db_connection()
+    try:
+        return stock_query.get_stocks_by_page_number(page_num)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
+
+# 新增：通过股票代码查询单只股票
+@app.get("/stocks/symbol/{symbol}", 
+         response_model=Optional[Dict], 
+         summary="通过股票代码查询股票",
+         tags=["单只股票数据"])
+def get_stock_by_symbol(
+    symbol: str = Path(..., description="股票代码，如：1")
+):
+    """通过股票代码查询单只股票详情"""
+    check_db_connection()
+    try:
+        result = stock_query.get_stock_by_symbol(symbol)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"未找到代码为{symbol}的股票")
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
+
+# 新增：通过股票名称查询单只股票
+@app.get("/stocks/name/{name}", 
+         response_model=Optional[Dict], 
+         summary="通过股票名称查询股票",
+         tags=["单只股票数据"])
+def get_stock_by_name(
+    name: str = Path(..., description="股票名称，如：平安银行")
+):
+    """通过股票名称查询单只股票详情"""
+    check_db_connection()
+    try:
+        result = stock_query.get_stock_by_name(name)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"未找到名称为{name}的股票")
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
 @app.get("/stocks/industry/{industry}/page/{page_num}", 
          response_model=List[Dict], 
