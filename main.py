@@ -246,19 +246,19 @@ def get_top3_stock_predictions():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
 
-@app.get("/stocks/{ts_code}/predictions/today", 
+@app.get("/stocks/{ts_code}/predictions/latest", 
          response_model=List[Dict], 
-         summary="获取股票当天预测数据",
+         summary="获取股票最新预测数据",
          tags=["预测数据"])
-def get_today_predictions(
+def get_latest_predictions(
     ts_code: str = Path(..., description="股票唯一代码，如：000001.SZ")
 ):
-    """获取指定股票当天的预测数据（从ai_predictions表查询）"""
+    """获取指定股票最新的预测数据（优先今天，无则取最近日期）"""
     check_db_connection()
     try:
-        result = stock_query.get_today_predictions_by_ts_code(ts_code)
+        result = stock_query.get_latest_predictions_by_ts_code(ts_code)
         if not result:
-            raise HTTPException(status_code=404, detail=f"未找到{ts_code}当天的预测数据")
+            raise HTTPException(status_code=404, detail=f"未找到{ts_code}的预测数据")
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -241,22 +241,23 @@ class StockQuery:
         except SQLAlchemyError as e:
             raise Exception(f"查询错误: {str(e)}")
 
-    def get_today_predictions_by_ts_code(self, ts_code: str) -> List[Dict]:
-        """获取当天的预测数据（修正为ai_predictions表）"""
+    def get_latest_predictions_by_ts_code(self, ts_code: str) -> List[Dict]:
+        """获取指定股票最新的预测数据（优先今天，无则取最近）"""
         if not ts_code:
             raise ValueError("股票唯一代码不能为空")
             
-        # ✅ 正确表名：ai_predictions
         query = text("""
             SELECT * FROM ai_predictions
-            WHERE ts_code = :ts_code AND predict_date = CURDATE()
-            ORDER BY id DESC
+            WHERE ts_code = :ts_code
+            ORDER BY predict_date DESC, id DESC
+            LIMIT 1
         """)
         
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(query, {"ts_code": ts_code})
-                return [dict(row._mapping) for row in result.fetchall()]
+                rows = result.fetchall()
+                return [dict(row._mapping) for row in rows]
         except SQLAlchemyError as e:
             raise Exception(f"查询错误: {str(e)}")
     def get_top3_predictions(self) -> List[Dict]:
